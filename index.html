@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chaos Chess</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <canvas id="bg-canvas"></canvas>
+  <div id="app">
+    <h1>CHAOS CHESS</h1>
+    <p class="subtitle">Every few moves, reality shifts. The board transforms into a different position with the same evaluation.</p>
+<div id="eval-bar-container">
+      <div id="eval-bar">
+        <div id="eval-white"></div>
+      </div>
+      <div id="eval-text">0.0</div>
+    </div>
+    <div id="elo-display">Opponent ELO: <span id="elo-value">1500</span></div>
+    <div id="chaos-warning" class="hidden">CHAOS IN <span id="chaos-count">15s</span></div>
+    <div id="board-frame">
+      <div id="board"></div>
+    </div>
+    <div id="status">Loading...</div>
+    <div id="controls">
+      <button id="new-game">New Game</button>
+    </div>
+  </div>
+  <a id="bmc-link" href="https://buymeacoffee.com/jaydata" target="_blank" rel="noopener">☕ Buy me a coffee</a>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
