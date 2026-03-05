@@ -3,6 +3,7 @@ import { Engine } from './engine.js';
 import { findChaosPosition, loadPositionDB } from './chaos.js';
 import { initArt } from './art.js';
 import { setTheme } from './themes.js';
+import { identifyFamous } from './famous.js';
 
 const statusEl = document.getElementById('status');
 const evalTextEl = document.getElementById('eval-text');
@@ -19,47 +20,67 @@ let chaosCountdownId = null;
 let chaosSeconds = 0;
 let chaosRunning = false;
 let gameOver = false;
+let passAndPlay = false;
+let moveCount = 0;
+let chaosEveryMoves = 3 + Math.floor(Math.random() * 4); // 3-6 moves
 
-// Skill 0-20 → approximate elo (range 10-10000)
+let currentSkill = 10;
+let powerupActive = false;
+let eloDriftTimer = null;
+let evalBonus = 0; // centipawns bonus from speed
+let bonusHideTimer = null;
+
 function skillToElo(skill) {
   return Math.round(10 + 9990 * Math.pow(skill / 20, 2));
 }
 
-let currentSkill = 10;
-let eloShiftInterval = null;
-
 function startEloDrift() {
-  if (eloShiftInterval) clearTimeout(eloShiftInterval);
+  stopEloDrift();
   function drift() {
     if (gameOver) return;
-    if (!chaosRunning) {
-      const delta = Math.floor(Math.random() * 5) - 2;
-      currentSkill = Math.max(0, Math.min(20, currentSkill + delta));
-      engine.setSkill(currentSkill);
-      eloValueEl.textContent = skillToElo(currentSkill);
-    }
-    const nextDelay = 1000 + Math.floor(Math.random() * 4000); // 1-5 seconds
-    eloShiftInterval = setTimeout(drift, nextDelay);
+    currentSkill = Math.max(0, Math.min(20, currentSkill + Math.floor(Math.random() * 5) - 2));
+    engine.setSkill(currentSkill);
+    eloValueEl.textContent = skillToElo(currentSkill);
+    eloDriftTimer = setTimeout(drift, 1000 + Math.random() * 4000);
   }
-  const nextDelay = 1000 + Math.floor(Math.random() * 4000);
-  eloShiftInterval = setTimeout(drift, nextDelay);
+  eloDriftTimer = setTimeout(drift, 1000 + Math.random() * 4000);
 }
 
 function stopEloDrift() {
-  if (eloShiftInterval) { clearTimeout(eloShiftInterval); eloShiftInterval = null; }
+  if (eloDriftTimer) { clearTimeout(eloDriftTimer); eloDriftTimer = null; }
+}
+
+function updateFavorDisplay(evalResult) {
+  if (!evalResult) return;
+  let value = 0;
+  if (evalResult.type === 'mate') {
+    value = evalResult.value > 0 ? 9999 : -9999;
+  } else {
+    value = evalResult.value;
+  }
+  if (value > 50) {
+    eloValueEl.textContent = 'White';
+    eloDisplayEl.className = 'favor-white';
+  } else if (value < -50) {
+    eloValueEl.textContent = 'Black';
+    eloDisplayEl.className = 'favor-black';
+  } else {
+    eloValueEl.textContent = 'Even';
+    eloDisplayEl.className = 'favor-even';
+  }
 }
 
 function rollChaosTimer() {
   clearChaosTimer();
-  chaosSeconds = 10 + Math.floor(Math.random() * 11); // 10-20 seconds
   chaosRunning = false;
   chaosWarningEl.className = 'hidden';
 
+  // Time-based chaos
+  chaosSeconds = 10 + Math.floor(Math.random() * 11); // 10-20 seconds
   chaosCountdownId = setInterval(() => {
     if (gameOver || chaosRunning) return;
     chaosSeconds--;
 
-    // Only show warning in the last 3 seconds
     if (chaosSeconds <= 3 && chaosSeconds > 0) {
       updateChaosWarning();
     }
@@ -70,6 +91,10 @@ function rollChaosTimer() {
       triggerChaos();
     }
   }, 1000);
+
+  // Move-based chaos
+  moveCount = 0;
+  chaosEveryMoves = 3 + Math.floor(Math.random() * 4); // 3-6 moves
 }
 
 function clearChaosTimer() {
@@ -78,10 +103,11 @@ function clearChaosTimer() {
 }
 
 function updateChaosWarning() {
-  if (chaosSeconds <= 0 || gameOver) {
+  if (gameOver) {
     chaosWarningEl.className = 'hidden';
     return;
   }
+  if (chaosSeconds <= 0) { chaosWarningEl.className = 'hidden'; return; }
   chaosWarningEl.className = 'imminent';
   chaosCountEl.textContent = chaosSeconds + 's';
 }
@@ -91,6 +117,16 @@ async function triggerChaos() {
   chaosRunning = true;
   board.interactive = false;
   chaosWarningEl.className = 'hidden';
+
+  // Reset speed bonus on chaos
+  if (bonusHideTimer) clearTimeout(bonusHideTimer);
+  evalBonus = 0;
+  const bonusEl = document.getElementById('speed-bonus');
+  if (bonusEl) {
+    document.getElementById('speed-bonus-value').textContent = '0.0';
+    bonusEl.classList.add('hidden');
+    bonusEl.classList.remove('flash');
+  }
 
   // Evaluate current position
   setStatus('CHAOS!', true);
@@ -108,6 +144,7 @@ async function triggerChaos() {
   if (result) {
     updateEvalDisplay(result.eval);
     await new Promise(resolve => board.morphTo(result.fen, resolve));
+    showFamousCallout(result.fen);
   }
 
   if (board.chess.isGameOver()) {
@@ -115,18 +152,10 @@ async function triggerChaos() {
     return;
   }
 
-  // Big random skill jump on chaos
-  currentSkill = Math.floor(Math.random() * 21);
-  engine.setSkill(currentSkill);
-  eloValueEl.textContent = skillToElo(currentSkill);
-  eloDisplayEl.classList.remove('elo-changed');
-  void eloDisplayEl.offsetWidth;
-  eloDisplayEl.classList.add('elo-changed');
-
   chaosRunning = false;
 
-  // If it's black's turn after chaos, engine needs to move
-  if (board.chess.turn() === 'b') {
+  // If it's black's turn after chaos and we're vs engine, engine needs to move
+  if (!passAndPlay && board.chess.turn() === 'b') {
     setStatus('Opponent thinking...', true);
     const bestMove = await engine.bestMove(board.fen, 10);
     if (bestMove) board.makeUciMove(bestMove);
@@ -141,8 +170,26 @@ async function triggerChaos() {
   }
 
   rollChaosTimer();
-  setStatus(`Your move — opponent ELO shifted!`);
+  const turn = passAndPlay ? (board.chess.turn() === 'w' ? "White's move" : "Black's move") : 'Your move';
+  setStatus(turn);
   board.interactive = true;
+}
+
+let famousTimeout = null;
+
+function showFamousCallout(fen) {
+  const desc = identifyFamous(fen);
+  if (!desc) return;
+  const el = document.getElementById('famous-callout');
+  if (!el) return;
+  el.textContent = desc;
+  el.classList.remove('hidden');
+  el.classList.add('visible');
+  if (famousTimeout) clearTimeout(famousTimeout);
+  famousTimeout = setTimeout(() => {
+    el.classList.remove('visible');
+    el.classList.add('hidden');
+  }, 6000);
 }
 
 function setStatus(text, thinking = false) {
@@ -152,23 +199,53 @@ function setStatus(text, thinking = false) {
 
 function updateEvalDisplay(evalResult) {
   if (!evalResult) return;
-  if (evalResult.type === 'mate') {
-    const sign = evalResult.value > 0 ? '+' : '';
-    evalTextEl.textContent = `M${sign}${evalResult.value}`;
-    evalWhiteEl.style.width = evalResult.value > 0 ? '95%' : '5%';
+  // Normalize to white's perspective (Stockfish returns from side-to-move's POV)
+  const flip = board.chess.turn() === 'b' ? -1 : 1;
+  const whiteVal = evalResult.value * flip;
+  const whiteEval = { type: evalResult.type, value: whiteVal };
+
+  if (whiteEval.type === 'mate') {
+    const sign = whiteVal > 0 ? '+' : '';
+    evalTextEl.textContent = `M${sign}${whiteVal}`;
+    evalWhiteEl.style.width = whiteVal > 0 ? '95%' : '5%';
   } else {
-    const pawns = evalResult.value / 100;
+    const adjusted = whiteVal + evalBonus;
+    const pawns = adjusted / 100;
     const sign = pawns >= 0 ? '+' : '';
-    evalTextEl.textContent = `${sign}${pawns.toFixed(1)}`;
-    const pct = Math.max(5, Math.min(95, 50 + (evalResult.value / 10)));
+    const bonusTag = evalBonus > 0 ? ` (+${(evalBonus / 100).toFixed(1)})` : '';
+    evalTextEl.textContent = `${sign}${pawns.toFixed(1)}${bonusTag}`;
+    const pct = Math.max(5, Math.min(95, 50 + (adjusted / 10)));
     evalWhiteEl.style.width = `${pct}%`;
   }
+  updateFavorDisplay(whiteEval);
 }
 
 async function onPlayerMove(move) {
   board.interactive = false;
 
+  // Move-based chaos check
+  if (!chaosRunning) {
+    moveCount++;
+
+    // Increment speed bonus on each move (+0.5 per move)
+    if (bonusHideTimer) { clearTimeout(bonusHideTimer); bonusHideTimer = null; }
+    evalBonus += 50;
+    const bonusEl = document.getElementById('speed-bonus');
+    if (bonusEl) {
+      document.getElementById('speed-bonus-value').textContent = (evalBonus / 100).toFixed(1);
+      bonusEl.classList.remove('hidden', 'flash');
+      void bonusEl.offsetWidth;
+      bonusEl.classList.add('flash');
+    }
+
+    if (moveCount >= chaosEveryMoves) {
+      await triggerChaos();
+      return;
+    }
+  }
+
   setStatus('Evaluating...', true);
+  showFamousCallout(board.fen);
   const evalResult = await engine.evaluate(board.fen, 10);
   updateEvalDisplay(evalResult);
 
@@ -177,10 +254,20 @@ async function onPlayerMove(move) {
     return;
   }
 
+  if (passAndPlay) {
+    const turn = board.chess.turn() === 'w' ? 'White' : 'Black';
+    setStatus(`${turn}'s move`);
+    board.interactive = true;
+    return;
+  }
+
   // Engine plays black
   setStatus('Opponent thinking...', true);
   const bestMove = await engine.bestMove(board.fen, 10);
-  if (bestMove) board.makeUciMove(bestMove);
+  if (bestMove) {
+    board.makeUciMove(bestMove);
+    showFamousCallout(board.fen);
+  }
 
   if (board.chess.isGameOver()) {
     handleGameOver();
@@ -198,7 +285,6 @@ function handleGameOver() {
   gameOver = true;
   board.interactive = false;
   clearChaosTimer();
-  stopEloDrift();
   chaosWarningEl.className = 'hidden';
   if (board.chess.isCheckmate()) {
     const winner = board.chess.turn() === 'w' ? 'Black' : 'White';
@@ -218,11 +304,22 @@ function resetGame() {
   board.interactive = true;
   currentSkill = 10;
   engine.setSkill(10);
-  eloValueEl.textContent = skillToElo(10);
-  startEloDrift();
+  evalBonus = 0;
+  if (bonusHideTimer) { clearTimeout(bonusHideTimer); bonusHideTimer = null; }
+  const bonusEl = document.getElementById('speed-bonus');
+  if (bonusEl) { bonusEl.classList.add('hidden'); bonusEl.classList.remove('flash'); }
   updateEvalDisplay({ type: 'cp', value: 0 });
+  board.allowBothSides = passAndPlay;
   rollChaosTimer();
-  setStatus('Your move (White)');
+  setStatus(passAndPlay ? "White's move" : 'Your move (White)');
+}
+
+function toggleMode() {
+  passAndPlay = !passAndPlay;
+  board.allowBothSides = passAndPlay;
+  const modeBtn = document.getElementById('mode-toggle');
+  modeBtn.textContent = passAndPlay ? 'vs Engine' : 'Pass & Play';
+  resetGame();
 }
 
 function setupThemeButtons() {
@@ -248,10 +345,19 @@ async function init() {
 
   board = new Board(document.getElementById('board'), onPlayerMove);
   document.getElementById('new-game').addEventListener('click', resetGame);
+  document.getElementById('mode-toggle').addEventListener('click', toggleMode);
+  const eloSlider = document.getElementById('elo-slider');
+  const eloSliderValue = document.getElementById('elo-slider-value');
+  eloSlider.addEventListener('input', () => {
+    const skill = parseInt(eloSlider.value);
+    currentSkill = skill;
+    engine.setSkill(skill);
+    eloSliderValue.textContent = skillToElo(skill);
+  });
 
   gameOver = false;
   rollChaosTimer();
-  startEloDrift();
+  updateFavorDisplay({ type: 'cp', value: 0 });
   setStatus('Your move (White)');
 }
 

@@ -102,7 +102,7 @@ h1 {
   border-color: var(--title-color);
 }
 
-/* Elo display */
+/* Favor display */
 #elo-display {
   font-size: 0.5rem;
   color: #6272a4;
@@ -111,19 +111,54 @@ h1 {
 }
 
 #elo-value {
-  color: var(--eval-color);
-  text-shadow: 0 0 6px var(--eval-color);
   transition: color 0.3s, text-shadow 0.3s;
 }
 
-#elo-display.elo-changed {
-  animation: eloFlash 1s ease-out;
+#elo-display.favor-white #elo-value {
+  color: #f8f8f2;
+  text-shadow: 0 0 8px rgba(248, 248, 242, 0.6);
 }
 
-@keyframes eloFlash {
-  0% { transform: scale(1.4); }
-  50% { transform: scale(1.1); }
-  100% { transform: scale(1); }
+#elo-display.favor-black #elo-value {
+  color: #ff79c6;
+  text-shadow: 0 0 8px rgba(255, 121, 198, 0.6);
+}
+
+#elo-display.favor-even #elo-value {
+  color: #6272a4;
+  text-shadow: 0 0 4px rgba(98, 114, 164, 0.4);
+}
+
+/* Speed bonus */
+#speed-bonus {
+  font-size: 0.55rem;
+  color: #50fa7b;
+  letter-spacing: 2px;
+  padding: 4px 14px;
+  border: 2px solid #50fa7b;
+  background: rgba(80, 250, 123, 0.08);
+  text-shadow: 0 0 8px #50fa7b, 0 0 20px rgba(80, 250, 123, 0.5);
+  box-shadow: 0 0 10px rgba(80, 250, 123, 0.2);
+  transition: opacity 0.5s;
+}
+
+#speed-bonus.hidden {
+  display: none;
+}
+
+#speed-bonus.flash {
+  animation: bonusFlash 0.8s ease-out;
+}
+
+#speed-bonus-value {
+  color: #f1fa8c;
+  text-shadow: 0 0 8px #f1fa8c;
+}
+
+@keyframes bonusFlash {
+  0% { transform: scale(1.5); filter: brightness(2); }
+  40% { transform: scale(1.1); }
+  100% { transform: scale(1); filter: brightness(1); }
 }
 
 /* Chaos warning */
@@ -192,6 +227,83 @@ h1 {
   text-align: right;
   text-shadow: 0 0 8px var(--eval-color);
   transition: color 0.5s;
+}
+
+/* Board area with slider */
+#board-area {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+#elo-slider-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  height: min(476px, 88vw);
+}
+
+#elo-slider-label {
+  font-size: 0.45rem;
+  color: var(--accent);
+  letter-spacing: 2px;
+  text-shadow: 0 0 6px var(--frame-glow);
+}
+
+#elo-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  writing-mode: vertical-lr;
+  direction: rtl;
+  flex: 1;
+  width: 20px;
+  background: transparent;
+  cursor: pointer;
+}
+
+#elo-slider::-webkit-slider-runnable-track {
+  width: 6px;
+  background: #44475a;
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+}
+
+#elo-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  background: var(--accent);
+  border: 2px solid var(--title-color);
+  border-radius: 0;
+  margin-left: -6px;
+  box-shadow: 0 0 8px var(--frame-glow);
+  cursor: grab;
+}
+
+#elo-slider::-moz-range-track {
+  width: 6px;
+  background: #44475a;
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+}
+
+#elo-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  background: var(--accent);
+  border: 2px solid var(--title-color);
+  border-radius: 0;
+  box-shadow: 0 0 8px var(--frame-glow);
+  cursor: grab;
+}
+
+#elo-slider-value {
+  font-size: 0.4rem;
+  color: var(--eval-color);
+  text-shadow: 0 0 6px var(--eval-color);
+  min-width: 40px;
+  text-align: center;
 }
 
 /* Board */
@@ -356,12 +468,48 @@ button:active {
   transform: scale(0.95);
 }
 
+/* Famous position callout */
+#famous-callout {
+  font-size: 0.55rem;
+  color: #ffeb3b;
+  text-align: center;
+  max-width: 500px;
+  padding: 8px 16px;
+  border: 2px solid #ffeb3b;
+  background: rgba(255, 235, 59, 0.08);
+  text-shadow:
+    0 0 10px #ffeb3b,
+    0 0 25px rgba(255, 235, 59, 0.5);
+  box-shadow:
+    0 0 12px rgba(255, 235, 59, 0.2),
+    inset 0 0 12px rgba(255, 235, 59, 0.05);
+  letter-spacing: 1px;
+  line-height: 1.6;
+  animation: famousFlash 0.5s ease-out, famousPulse 1.5s ease-in-out 0.5s infinite alternate;
+  transition: opacity 0.5s;
+}
+
+#famous-callout.hidden {
+  display: none;
+}
+
+@keyframes famousFlash {
+  0% { transform: scale(1.3); opacity: 0; filter: brightness(2); }
+  60% { transform: scale(1.05); opacity: 1; }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+
+@keyframes famousPulse {
+  0% { text-shadow: 0 0 10px #ffeb3b, 0 0 25px rgba(255, 235, 59, 0.5); }
+  100% { text-shadow: 0 0 15px #ffeb3b, 0 0 40px rgba(255, 235, 59, 0.7), 0 0 60px rgba(255, 235, 59, 0.3); }
+}
+
 #bmc-link {
   position: fixed;
-  bottom: 10px;
-  right: 14px;
+  bottom: 14px;
+  right: 18px;
   font-family: 'Press Start 2P', monospace;
-  font-size: 0.55rem;
+  font-size: 1rem;
   color: var(--accent);
   text-decoration: none;
   opacity: 0.5;

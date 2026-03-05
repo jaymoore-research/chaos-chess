@@ -10,6 +10,7 @@ export class Board {
     this.legalMoves = [];
     this.lastMove = null;
     this.interactive = true;
+    this.allowBothSides = false;
     this.render();
   }
 
@@ -164,7 +165,7 @@ export class Board {
 
   _onClick(sq) {
     if (!this.interactive) return;
-    if (this.chess.turn() !== 'w') return;
+    if (!this.allowBothSides && this.chess.turn() !== 'w') return;
 
     if (this.selectedSquare) {
       const legalMove = this.legalMoves.find(m => m.to === sq);

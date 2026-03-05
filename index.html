@@ -10,21 +10,31 @@
   <canvas id="bg-canvas"></canvas>
   <div id="app">
     <h1>CHAOS CHESS</h1>
-    <p class="subtitle">Every few moves, reality shifts. The board transforms into a different position with the same evaluation.</p>
+    <p class="subtitle">Every few moves, reality shifts. The board transforms into a different position with the same evaluation. Play fast between chaos events to earn an eval bonus — each move adds +0.5 to your advantage!</p>
 <div id="eval-bar-container">
       <div id="eval-bar">
         <div id="eval-white"></div>
       </div>
       <div id="eval-text">0.0</div>
     </div>
-    <div id="elo-display">Opponent ELO: <span id="elo-value">1500</span></div>
+    <div id="elo-display">Favors: <span id="elo-value">Even</span></div>
+    <div id="speed-bonus" class="hidden">SPEED BONUS: +<span id="speed-bonus-value">0.0</span></div>
     <div id="chaos-warning" class="hidden">CHAOS IN <span id="chaos-count">15s</span></div>
-    <div id="board-frame">
-      <div id="board"></div>
+    <div id="board-area">
+      <div id="board-frame">
+        <div id="board"></div>
+      </div>
+      <div id="elo-slider-container">
+        <div id="elo-slider-label">ELO</div>
+        <input type="range" id="elo-slider" min="0" max="20" value="10" orient="vertical">
+        <div id="elo-slider-value">2498</div>
+      </div>
     </div>
+    <div id="famous-callout" class="hidden"></div>
     <div id="status">Loading...</div>
     <div id="controls">
       <button id="new-game">New Game</button>
+      <button id="mode-toggle">Pass & Play</button>
     </div>
   </div>
   <a id="bmc-link" href="https://buymeacoffee.com/jaydata" target="_blank" rel="noopener">☕ Buy me a coffee</a>
