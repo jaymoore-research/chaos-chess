@@ -34,7 +34,7 @@ let evalBonus = 0; // centipawns bonus from speed
 let bonusHideTimer = null;
 
 function skillToElo(skill) {
-  return Math.round(10 + 9990 * Math.pow(skill / 20, 2));
+  return Math.round(100 + 1900 * (skill / 20));
 }
 
 function startEloDrift() {
@@ -78,8 +78,8 @@ function rollChaosTimer() {
   chaosRunning = false;
   chaosWarningEl.className = 'hidden';
 
-  // Fixed 6s chaos timer
-  chaosSeconds = 6;
+  // Chaos every 10-15 seconds
+  chaosSeconds = 10 + Math.floor(Math.random() * 6);
   chaosCountdownId = setInterval(() => {
     if (gameOver || chaosRunning) return;
     chaosSeconds--;
