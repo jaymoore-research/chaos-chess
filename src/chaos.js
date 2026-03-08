@@ -126,40 +126,51 @@ export async function findChaosPosition(engine, targetEval, currentFen, onProgre
   }
 
   // Phase 2: Mutation hill-climbing — moves pieces around (same piece set preserved)
-  if (bestFen) {
-    let currentFenMut = bestFen;
-    let currentDiff = bestDiff;
+  // If no DB match, start from the current position
+  let currentFenMut = bestFen || currentFen;
+  let currentDiff = bestFen ? bestDiff : Infinity;
+  const iterations = bestFen ? 40 : 80; // more iterations when generating from scratch
 
-    for (let i = 0; i < 40; i++) {
-      totalTried++;
-      if (onProgress) onProgress(totalTried, 'Refining position...');
+  for (let i = 0; i < iterations; i++) {
+    totalTried++;
+    if (onProgress) onProgress(totalTried, bestFen ? 'Refining position...' : 'Generating position...');
 
-      const mutated = mutatePosition(currentFenMut);
-      if (!mutated) continue;
+    const mutated = mutatePosition(currentFenMut);
+    if (!mutated) continue;
 
-      const evalResult = await engine.evaluate(mutated, EVAL_DEPTH);
-      if (evalResult.type === 'mate') continue;
+    const evalResult = await engine.evaluate(mutated, EVAL_DEPTH);
+    if (evalResult.type === 'mate') continue;
 
-      const diff = Math.abs(evalResult.value - target);
+    const diff = Math.abs(evalResult.value - target);
 
-      const temperature = 1 - (i / 40);
-      const acceptWorse = Math.random() < temperature * 0.3;
+    const temperature = 1 - (i / iterations);
+    const acceptWorse = Math.random() < temperature * 0.3;
 
-      if (diff < currentDiff || (acceptWorse && diff < currentDiff + 100)) {
-        currentFenMut = mutated;
-        currentDiff = diff;
+    if (diff < currentDiff || (acceptWorse && diff < currentDiff + 100)) {
+      currentFenMut = mutated;
+      currentDiff = diff;
 
-        if (diff < bestDiff) {
-          bestDiff = diff;
-          bestFen = currentFenMut;
-          bestEval = evalResult;
-        }
+      if (diff < bestDiff) {
+        bestDiff = diff;
+        bestFen = currentFenMut;
+        bestEval = evalResult;
       }
-
-      if (bestDiff <= TOLERANCE) return { fen: bestFen, eval: bestEval };
     }
+
+    if (bestDiff <= TOLERANCE) return { fen: bestFen, eval: bestEval };
   }
 
   if (bestFen) return { fen: bestFen, eval: bestEval };
+
+  // Phase 3: Last resort — return any valid mutated position
+  for (let i = 0; i < 20; i++) {
+    const mutated = mutatePosition(currentFen);
+    if (!mutated) continue;
+    const evalResult = await engine.evaluate(mutated, EVAL_DEPTH);
+    if (evalResult.type !== 'mate') {
+      return { fen: mutated, eval: evalResult };
+    }
+  }
+
   return null;
 }

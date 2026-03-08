@@ -4,6 +4,7 @@ import { findChaosPosition, loadPositionDB } from './chaos.js';
 import { initArt } from './art.js';
 import { setTheme } from './themes.js';
 import { identifyFamous } from './famous.js';
+import { addEntry, renderLeaderboard } from './leaderboard.js';
 
 const statusEl = document.getElementById('status');
 const evalTextEl = document.getElementById('eval-text');
@@ -23,6 +24,8 @@ let gameOver = false;
 let passAndPlay = false;
 let moveCount = 0;
 let chaosEveryMoves = 3 + Math.floor(Math.random() * 4); // 3-6 moves
+let chaosCount = 0; // how many chaos events have fired
+let totalMoves = 0;
 
 let currentSkill = 10;
 let powerupActive = false;
@@ -75,8 +78,8 @@ function rollChaosTimer() {
   chaosRunning = false;
   chaosWarningEl.className = 'hidden';
 
-  // Time-based chaos
-  chaosSeconds = 10 + Math.floor(Math.random() * 11); // 10-20 seconds
+  // Fixed 6s chaos timer
+  chaosSeconds = 6;
   chaosCountdownId = setInterval(() => {
     if (gameOver || chaosRunning) return;
     chaosSeconds--;
@@ -115,6 +118,7 @@ function updateChaosWarning() {
 async function triggerChaos() {
   if (gameOver || chaosRunning) return;
   chaosRunning = true;
+  chaosCount++;
   board.interactive = false;
   chaosWarningEl.className = 'hidden';
 
@@ -222,6 +226,7 @@ function updateEvalDisplay(evalResult) {
 
 async function onPlayerMove(move) {
   board.interactive = false;
+  totalMoves++;
 
   // Move-based chaos check
   if (!chaosRunning) {
@@ -286,15 +291,68 @@ function handleGameOver() {
   board.interactive = false;
   clearChaosTimer();
   chaosWarningEl.className = 'hidden';
+
+  let resultText = 'Game over!';
+  let result = 'loss';
   if (board.chess.isCheckmate()) {
     const winner = board.chess.turn() === 'w' ? 'Black' : 'White';
-    setStatus(`Checkmate! ${winner} wins!`);
-  } else if (board.chess.isDraw()) {
-    setStatus('Draw!');
-  } else if (board.chess.isStalemate()) {
-    setStatus('Stalemate!');
+    resultText = `Checkmate! ${winner} wins!`;
+    result = winner === 'White' ? 'win' : 'loss';
+  } else if (board.chess.isDraw() || board.chess.isStalemate()) {
+    resultText = board.chess.isStalemate() ? 'Stalemate!' : 'Draw!';
+    result = 'draw';
+  }
+  setStatus(resultText);
+  showNamePrompt(resultText, result);
+}
+
+function showNamePrompt(resultText, result) {
+  const prompt = document.getElementById('name-prompt');
+  const resultEl = document.getElementById('name-prompt-result');
+  const input = document.getElementById('player-name-input');
+  const submitBtn = document.getElementById('name-prompt-submit');
+
+  resultEl.textContent = `${resultText} | ${totalMoves} moves | ${chaosCount} chaos events`;
+  input.value = localStorage.getItem('chaos-chess-name') || '';
+  prompt.classList.remove('hidden');
+  setTimeout(() => input.focus(), 100);
+
+  function submit() {
+    const name = input.value.trim() || 'Anonymous';
+    localStorage.setItem('chaos-chess-name', name);
+    addEntry({
+      name,
+      result,
+      moves: totalMoves,
+      chaosEvents: chaosCount,
+      eloAtEnd: skillToElo(currentSkill),
+    });
+    prompt.classList.add('hidden');
+    submitBtn.removeEventListener('click', submit);
+    input.removeEventListener('keydown', onKey);
+    showLeaderboard();
+  }
+
+  function onKey(e) {
+    if (e.key === 'Enter') submit();
+  }
+
+  submitBtn.addEventListener('click', submit);
+  input.addEventListener('keydown', onKey);
+}
+
+function showLeaderboard() {
+  const panel = document.getElementById('leaderboard-panel');
+  panel.classList.remove('hidden');
+  renderLeaderboard(panel);
+}
+
+function toggleLeaderboard() {
+  const panel = document.getElementById('leaderboard-panel');
+  if (panel.classList.contains('hidden')) {
+    showLeaderboard();
   } else {
-    setStatus('Game over!');
+    panel.classList.add('hidden');
   }
 }
 
@@ -305,11 +363,15 @@ function resetGame() {
   currentSkill = 10;
   engine.setSkill(10);
   evalBonus = 0;
+  chaosCount = 0;
+  totalMoves = 0;
   if (bonusHideTimer) { clearTimeout(bonusHideTimer); bonusHideTimer = null; }
   const bonusEl = document.getElementById('speed-bonus');
   if (bonusEl) { bonusEl.classList.add('hidden'); bonusEl.classList.remove('flash'); }
   updateEvalDisplay({ type: 'cp', value: 0 });
   board.allowBothSides = passAndPlay;
+  document.getElementById('leaderboard-panel').classList.add('hidden');
+  document.getElementById('name-prompt').classList.add('hidden');
   rollChaosTimer();
   setStatus(passAndPlay ? "White's move" : 'Your move (White)');
 }
@@ -346,6 +408,7 @@ async function init() {
   board = new Board(document.getElementById('board'), onPlayerMove);
   document.getElementById('new-game').addEventListener('click', resetGame);
   document.getElementById('mode-toggle').addEventListener('click', toggleMode);
+  document.getElementById('lb-toggle').addEventListener('click', toggleLeaderboard);
   const eloSlider = document.getElementById('elo-slider');
   const eloSliderValue = document.getElementById('elo-slider-value');
   eloSlider.addEventListener('input', () => {

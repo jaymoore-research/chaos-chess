@@ -35,6 +35,17 @@
     <div id="controls">
       <button id="new-game">New Game</button>
       <button id="mode-toggle">Pass & Play</button>
+      <button id="lb-toggle">Leaderboard</button>
+    </div>
+    <div id="leaderboard-panel" class="hidden"></div>
+    <div id="name-prompt" class="hidden">
+      <div class="name-prompt-inner">
+        <div class="name-prompt-title">GAME OVER</div>
+        <div id="name-prompt-result"></div>
+        <label for="player-name-input">Enter your name:</label>
+        <input type="text" id="player-name-input" maxlength="12" placeholder="Anonymous" autocomplete="off">
+        <button id="name-prompt-submit">Submit</button>
+      </div>
     </div>
   </div>
   <a id="bmc-link" href="https://buymeacoffee.com/jaydata" target="_blank" rel="noopener">☕ Buy me a coffee</a>
