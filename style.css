@@ -143,7 +143,8 @@ h1 {
 }
 
 #speed-bonus.hidden {
-  display: none;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 #speed-bonus.flash {
@@ -172,10 +173,12 @@ h1 {
   background: rgba(255, 85, 85, 0.08);
   animation: warningPulse 1s steps(2) infinite;
   transition: all 0.3s;
+  min-height: 2em;
 }
 
 #chaos-warning.hidden {
-  display: none;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 #chaos-warning.imminent {
@@ -393,7 +396,7 @@ h1 {
 }
 
 .square.last-move {
-  background: rgba(80, 250, 123, 0.15) !important;
+  box-shadow: inset 0 0 0 100px rgba(80, 250, 123, 0.15);
 }
 
 .square.chaos-highlight {
@@ -403,7 +406,7 @@ h1 {
 @keyframes chaosFlash {
   0% { background: var(--title-color); box-shadow: inset 0 0 20px var(--title-color); }
   50% { background: var(--accent); }
-  100% { }
+  100% { background: inherit; }
 }
 
 .piece {
@@ -487,6 +490,7 @@ button:active {
   line-height: 1.6;
   animation: famousFlash 0.5s ease-out, famousPulse 1.5s ease-in-out 0.5s infinite alternate;
   transition: opacity 0.5s;
+  min-height: 2em;
 }
 
 #famous-callout.hidden {
