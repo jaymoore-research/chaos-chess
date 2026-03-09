@@ -47,16 +47,38 @@ export function renderLeaderboard(container) {
   const entries = getEntries();
   container.innerHTML = '';
 
+  // Click backdrop or press Escape to close
+  container.onclick = (e) => {
+    if (e.target === container) container.classList.add('hidden');
+  };
+  const onKey = (e) => {
+    if (e.key === 'Escape') {
+      container.classList.add('hidden');
+      document.removeEventListener('keydown', onKey);
+    }
+  };
+  document.addEventListener('keydown', onKey);
+
+  const modal = document.createElement('div');
+  modal.className = 'lb-modal';
+
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'lb-close';
+  closeBtn.textContent = 'X';
+  closeBtn.addEventListener('click', () => container.classList.add('hidden'));
+  modal.appendChild(closeBtn);
+
   const title = document.createElement('div');
   title.className = 'lb-title';
   title.textContent = 'LEADERBOARD';
-  container.appendChild(title);
+  modal.appendChild(title);
 
   if (entries.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'lb-empty';
     empty.textContent = 'No games yet. Play to get on the board!';
-    container.appendChild(empty);
+    modal.appendChild(empty);
+    container.appendChild(modal);
     return;
   }
 
@@ -79,7 +101,8 @@ export function renderLeaderboard(container) {
     tbody.appendChild(tr);
   });
   table.appendChild(tbody);
-  container.appendChild(table);
+  modal.appendChild(table);
+  container.appendChild(modal);
 }
 
 function esc(s) {
